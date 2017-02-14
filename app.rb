@@ -7,10 +7,9 @@ set :port, ENV['PORT'] || 4002
 
 get '/' do
   if params['hub.verify_token'] == ENV['VERIFY_TOKEN']
-    params['hub.challenge']
+    render text: params['hub.challenge'], status: :ok
   else
-    status 401
-    body 'Authentication error'
+    render text: 'invalid token', status: :forbidden
   end
 end
 
@@ -19,12 +18,13 @@ post '/' do
     request.body.rewind
     body = JSON.parse(request.body.read)
 
-    entries = body['entry']
+    entries = body[:entry]
+    puts "Entries: #{entries}"
 
     entries.each do |entry|
       entry['messaging'].each do |message|
-        text   = message['message']['text'].to_s
-        sender = message['sender']['id']
+        text   = message[:message][:text].to_s
+        sender = message[:sender][:id]
 
         if text.match(/hello/i)
           greetings(sender, 'Hello from the other side!')
