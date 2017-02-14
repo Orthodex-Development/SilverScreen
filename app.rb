@@ -22,36 +22,21 @@ post '/webhook' do
     request.body.rewind  # in case someone already read it
     data = JSON.parse request.body.read
     logger.info "Payload: #{data.inspect}"
-    entry = data[:entry][0][:messaging][0]
+    entry = data["entry"][0]["messaging"][0]
 
-    if entry.has_key?(:message)
-      message = entry[:message]
-      if message[:is_echo]
+    if entry.has_key?("message")
+      message = entry["message"]
+      if message["is_echo"]
         # This is a message_echoes callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-echo
         Rails.logger.warn "---> This is a message_echoes callback (when the bot sends a reply back)"
       else
         Rails.logger.warn "---> This is a message callback (when the bot receives a message)"
         # This is a message_received callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
-        recipient = entry[:sender][:id]
-        text = message[:text]
+        recipient = entry["sender"]["id"]
+        text = message["text"]
 
         reply(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
       end
-    # This is a message_received callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
-    elsif entry.has_key?(:postback)
-      Rails.logger.warn "---> This is a messaging_postbacks callback"
-    # This is a message_optins callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
-    elsif entry.has_key?(:optin)
-      Rails.logger.warn "---> This is a messaging_optins callback"
-    # This is an account_linking callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/account-linking
-    elsif entry.has_key?(:account_linking)
-      Rails.logger.warn "---> This is a account_linking callback"
-    # This is a message_delivery callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-delivered
-    elsif entry.has_key?(:delivery)
-      Rails.logger.warn "---> This is a message_deliveries callback"
-      # This is a message_read callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-read
-    elsif entry.has_key?(:read)
-      Rails.logger.warn "---> This is a message_read callback"
     end
 
     render text: 'received', status: :ok
