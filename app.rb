@@ -39,7 +39,7 @@ post '/webhook' do
       end
     end
 
-    render text: 'received', status: :ok
+    render 200
 end
 
 def reply(sender, text)
