@@ -28,9 +28,9 @@ post '/webhook' do
       message = entry["message"]
       if message["is_echo"]
         # This is a message_echoes callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-echo
-        Rails.logger.warn "---> This is a message_echoes callback (when the bot sends a reply back)"
+        logger.warn "---> This is a message_echoes callback (when the bot sends a reply back)"
       else
-        Rails.logger.warn "---> This is a message callback (when the bot receives a message)"
+        logger.warn "---> This is a message callback (when the bot receives a message)"
         # This is a message_received callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
         recipient = entry["sender"]["id"]
         text = message["text"]
