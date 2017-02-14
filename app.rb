@@ -4,6 +4,12 @@ require 'httparty'
 
 set :endpoint, "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV['PAGE_TOKEN']}"
 
+helpers do
+  def logger
+    request.logger
+  end
+end
+
 get '/webhook' do
   if params['hub.verify_token'] == ENV['VERIFY_TOKEN']
     params['hub.challenge']
