@@ -27,7 +27,7 @@ post '/webhook' do
         recipient = entry[:sender][:id]
         text = message[:text]
 
-        resp = Facebook.new(Settings.page_access_token).message(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
+        reply(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
       end
     # This is a message_received callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
     elsif entry.has_key?(:postback)
