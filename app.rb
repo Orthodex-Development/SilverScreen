@@ -13,7 +13,7 @@ get '/webhook' do
 end
 
 post '/' do
-    puts request.body
+    puts "PARAMS:#{params.inspect}"
   begin
     request.body.rewind
     body = JSON.parse(request.body.read)
