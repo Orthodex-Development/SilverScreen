@@ -13,8 +13,9 @@ get '/webhook' do
 end
 
 post '/webhook' do
-    payload = params[:webhook]
-    entry = params[:webhook][:entry][0][:messaging][0]
+    payload = params
+    puts "Payload: #{payload.inspect}"
+    entry = params[:entry][0][:messaging][0]
 
     if entry.has_key?(:message)
       message = entry[:message]
