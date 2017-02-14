@@ -14,7 +14,7 @@ end
 
 post '/webhook' do
     payload = params
-    puts "Payload: #{payload.inspect}"
+    logger.info "Payload: #{payload.inspect}"
     entry = params[:entry][0][:messaging][0]
 
     if entry.has_key?(:message)
