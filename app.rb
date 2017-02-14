@@ -12,7 +12,7 @@ get '/webhook' do
   end
 end
 
-post '/' do
+post '/webhook' do
     puts "PARAMS:#{params.inspect}"
   begin
     request.body.rewind
