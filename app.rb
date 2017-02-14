@@ -19,9 +19,10 @@ get '/webhook' do
 end
 
 post '/webhook' do
-    payload = params
-    logger.info "Payload: #{payload.inspect}"
-    entry = params[:entry][0][:messaging][0]
+    request.body.rewind  # in case someone already read it
+    data = JSON.parse request.body.read
+    logger.info "Payload: #{data.inspect}"
+    entry = data[:entry][0][:messaging][0]
 
     if entry.has_key?(:message)
       message = entry[:message]
