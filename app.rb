@@ -14,32 +14,44 @@ get '/webhook' do
   if params['hub.verify_token'] == ENV['VERIFY_TOKEN']
     params['hub.challenge']
   else
-    render text: 'invalid token', status: :forbidden
+    render 403
   end
 end
 
 post '/webhook' do
-    request.body.rewind  # in case someone already read it
-    data = JSON.parse request.body.read
-    logger.info "Payload: #{data.inspect}"
-    entry = data["entry"][0]["messaging"][0]
+  request.body.rewind  # in case someone already read it
+  data = JSON.parse request.body.read
+  logger.info "Payload: #{data.inspect}"
+  entry = data["entry"][0]["messaging"][0]
 
-    if entry.has_key?("message")
-      message = entry["message"]
-      if message["is_echo"]
-        # This is a message_echoes callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-echo
-        logger.warn "---> This is a message_echoes callback (when the bot sends a reply back)"
-      else
-        logger.warn "---> This is a message callback (when the bot receives a message)"
-        # This is a message_received callback: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
-        recipient = entry["sender"]["id"]
-        text = message["text"]
+  if entry.has_key?("message")
+    message = entry["message"]
+    if message["is_echo"]
+      logger.info "---> This is a message_echoes callback (when the bot sends a reply back)"
+    else
+      logger.info "---> This is a message callback (when the bot receives a message)"
+      recipient = entry["sender"]["id"]
+      text = message["text"]
 
-        reply(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
-      end
+      action = "find"
+
+      movie_action(action, text)
+
+      reply(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
     end
+  end
 
-    render 200
+  render 200
+end
+
+def movie_action(action, text)
+  case action
+  when "find"
+    movie = text.match(/(.)*movie: (.*)/i)[2]
+    HTTParty.post(TMDB_URL + "")
+  when "discover"
+    HTTParty.post(TMDB_URL + "")
+  end
 end
 
 def reply(sender, text)
