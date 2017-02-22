@@ -4,7 +4,6 @@ require 'httparty'
 require 'themoviedb-api'
 require 'dotenv'
 require 'mechanize'
-require 'byebug'
 
 set :endpoint, "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV['PAGE_TOKEN']}"
 
