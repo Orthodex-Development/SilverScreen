@@ -3,6 +3,8 @@ require 'sinatra'
 require 'httparty'
 require 'themoviedb-api'
 require 'dotenv'
+require 'mechanize'
+require 'byebug'
 
 set :endpoint, "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV['PAGE_TOKEN']}"
 
@@ -41,11 +43,9 @@ post '/webhook' do
       @recipient = entry["sender"]["id"]
       text = message["text"]
 
-      action = "discover"
+      action = if text.include? "discover" then "discover" else "find" end
 
       movie_action(action, text)
-
-      reply(@recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
     end
   else
     render 200
@@ -55,15 +55,30 @@ end
 def movie_action(action, text)
   case action
   when "find"
-    movie = text.match(/(.)*movie: (.*)/i)[2]
-    response = JSON.parse(Tmdb::Search.movie(movie, page: 1))
-    movie_id = response["results"][0]["id"]
-    json = JSON.parse(Tmdb::Movie.reviews(movie_id))
-    review = json["content"]
+    movie_id = text.match(/(.)*movie: (.*)/i)[2]
+    title = Tmdb::Movie.detail(movie_id).title
 
+    response = HTTParty.get("http://api.nytimes.com/svc/movies/v2/reviews/search.json?api-key=#{ENV["NY_TIMES_API_KEY"]}&query=#{title}")
+
+    if response.code == 200
+      json = JSON.parse(response.body)
+      if json["results"].empty?
+        reply(@recipient, "Sorry, but I couldn't find any review for that movie.")
+      else
+        url = json["results"][0]["link"]["url"]
+        # Scrape NY Times review site for review
+        agent = Mechanize.new
+        page = agent.get(url)
+        review = page.search("p.story-body-text").text
+        logger.info "REVIEW: #{review}"
+        reply(@recipient, "Found your review at #{url}" )
+      end
+    else
+      reply(@recipient, "Sorry, but an error ocurred")
+    end
     # Send review to Python app
     # Send review to bot.
-    reply(@recipient, "Here is the review for your movie: #{review}")
+    # reply(@recipient, "Here is the review for your movie: #{review}")
   when "discover"
     movies = Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
     title_arr = []
@@ -73,7 +88,7 @@ def movie_action(action, text)
       movie_id << movie["id"]
     end
     reply(@recipient, "These are the current popular movies: #{title_arr.map.with_index{ |x,i| "(#{movie_id[i]}) " + x }.join(", ")}")
-    reply(@recipient, "To find details about a movie: \"find movie_id\"")
+    reply(@recipient, "To find details about a movie: \"find movie: movie_id\"")
   end
 end
 
@@ -90,7 +105,6 @@ def reply(sender, text)
   #HTTParty.post(settings.endpoint, body: body)
 end
 
-def greetings(sender, text)
-  HTTParty.post(settings.endpoint, body: body)
-  reply(sender, 'Hi! I am movie bot! I recommend current movies to you!')
+get '/' do
+  erb :index
 end

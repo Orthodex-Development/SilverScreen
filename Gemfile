@@ -6,3 +6,5 @@ gem 'httparty'  , '~> 0.13.7'
 gem 'puma'
 gem 'themoviedb-api'
 gem 'dotenv'
+gem 'mechanize'
+gem 'byebug', group: :development
