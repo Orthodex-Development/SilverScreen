@@ -1,13 +1,15 @@
 require 'json'
 require 'sinatra'
 require 'httparty'
-
-TMDB_URL = "https://api.themoviedb.org/3"
+require 'themoviedb-api'
+require 'dotenv'
 
 set :endpoint, "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV['PAGE_TOKEN']}"
 
 before do
+  Dotenv.load
   Tmdb::Api.key(ENV["TMDB_API_KEY"])
+  logger.info "key? : #{ENV.key?("TMDB_API_KEY")}"
 end
 
 helpers do
@@ -36,18 +38,18 @@ post '/webhook' do
       logger.info "---> This is a message_echoes callback (when the bot sends a reply back)"
     else
       logger.info "---> This is a message callback (when the bot receives a message)"
-      recipient = entry["sender"]["id"]
+      @recipient = entry["sender"]["id"]
       text = message["text"]
 
       action = "discover"
 
       movie_action(action, text)
 
-      # reply(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
+      reply(@recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
     end
+  else
+    render 200
   end
-
-  render 200
 end
 
 def movie_action(action, text)
@@ -61,14 +63,17 @@ def movie_action(action, text)
 
     # Send review to Python app
     # Send review to bot.
-    reply(recipient, "Here is the review for your movie: #{review}")
+    reply(@recipient, "Here is the review for your movie: #{review}")
   when "discover"
     movies = Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
     title_arr = []
+    movie_id = []
     movie_titles = movies["results"].each do |movie|
       title_arr << movie["title"]
+      movie_id << movie["id"]
     end
-    reply(recipient, "These are the current popular movies: #{title_arr}")
+    reply(@recipient, "These are the current popular movies: #{title_arr.map.with_index{ |x,i| "(#{movie_id[i]}) " + x }.join(", ")}")
+    reply(@recipient, "To find details about a movie: \"find movie_id\"")
   end
 end
 
@@ -81,8 +86,8 @@ def reply(sender, text)
       text: text
     }
   }
-
-  HTTParty.post(settings.endpoint, body: body)
+  logger.info "send to #{settings.endpoint}, body: #{body}"
+  #HTTParty.post(settings.endpoint, body: body)
 end
 
 def greetings(sender, text)

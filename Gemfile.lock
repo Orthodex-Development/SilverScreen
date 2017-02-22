@@ -3,6 +3,7 @@ GEM
   specs:
     domain_name (0.5.20161129)
       unf (>= 0.0.5, < 1.0.0)
+    dotenv (2.1.1)
     http-cookie (1.0.3)
       domain_name (~> 0.5)
     httparty (0.13.7)
@@ -35,6 +36,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  dotenv
   httparty (~> 0.13.7)
   json (~> 1.8.3)
   puma
