@@ -2,7 +2,13 @@ require 'json'
 require 'sinatra'
 require 'httparty'
 
+TMDB_URL = "https://api.themoviedb.org/3"
+
 set :endpoint, "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV['PAGE_TOKEN']}"
+
+before do
+  Tmdb::Api.key(ENV["TMDB_API_KEY"])
+end
 
 helpers do
   def logger
@@ -33,11 +39,11 @@ post '/webhook' do
       recipient = entry["sender"]["id"]
       text = message["text"]
 
-      action = "find"
+      action = "discover"
 
       movie_action(action, text)
 
-      reply(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
+      # reply(recipient, "You said '#{text}'. Unfortunately I can't do any thing with that request")
     end
   end
 
@@ -48,9 +54,21 @@ def movie_action(action, text)
   case action
   when "find"
     movie = text.match(/(.)*movie: (.*)/i)[2]
-    HTTParty.post(TMDB_URL + "")
+    response = JSON.parse(Tmdb::Search.movie(movie, page: 1))
+    movie_id = response["results"][0]["id"]
+    json = JSON.parse(Tmdb::Movie.reviews(movie_id))
+    review = json["content"]
+
+    # Send review to Python app
+    # Send review to bot.
+    reply(recipient, "Here is the review for your movie: #{review}")
   when "discover"
-    HTTParty.post(TMDB_URL + "")
+    movies = Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
+    title_arr = []
+    movie_titles = movies["results"].each do |movie|
+      title_arr << movie["title"]
+    end
+    reply(recipient, "These are the current popular movies: #{title_arr}")
   end
 end
 

@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
 gem 'json'      , '~> 1.8.3'
-gem 'sinatra'   , '~> 1.4.7'
+gem 'sinatra'
 gem 'httparty'  , '~> 0.13.7'
 gem 'puma'
+gem 'themoviedb-api'
