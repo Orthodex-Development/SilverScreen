@@ -58,7 +58,7 @@ def movie_action(action, text)
     movie_id = text.match(/(.)*movie: (.*)/i)[2]
     title = Tmdb::Movie.detail(movie_id).title
 
-    response = HTTParty.get("http://api.nytimes.com/svc/movies/v2/reviews/search.json?api-key=#{ENV["NY_TIMES_API_KEY"]}&query=#{title}")
+      response = HTTParty.get("http://api.nytimes.com/svc/movies/v2/reviews/search.json?api-key=#{ENV["NY_TIMES_API_KEY"]}&query=#{title}")
     reply(@recipient, "Got the movie! Retrieving reviews...")
 
     if response.code == 200
@@ -90,7 +90,7 @@ def movie_action(action, text)
       movie_id << movie["id"]
     end
     reply(@recipient, "These are the current popular movies: #{title_arr.map.with_index{ |x,i| "(#{movie_id[i]}) " + x }.join(", ")}")
-    reply(@recipient, "To find details about a movie: \"find movie: movie_id\"")
+    reply(@recipient, "To find details about a movie type - find movie: movie_id")
   end
 end
 
@@ -104,7 +104,8 @@ def reply(sender, text)
     }
   }
   logger.info "send to Facebook, body: #{body}"
-  HTTParty.post(settings.endpoint, body: URI.encode_www_form({json: body}))
+  body = URI.encode_www_form({json: body})
+  HTTParty.post(settings.endpoint, body: body)
 end
 
 get '/' do
