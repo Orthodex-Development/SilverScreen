@@ -46,9 +46,10 @@ post '/webhook' do
       action = if text.include? "discover" then "discover" else "find" end
 
       movie_action(action, text)
+      200
     end
   else
-    render 200
+    200
   end
 end
 
