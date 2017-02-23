@@ -58,6 +58,7 @@ def movie_action(action, text)
     title = Tmdb::Movie.detail(movie_id).title
 
     response = HTTParty.get("http://api.nytimes.com/svc/movies/v2/reviews/search.json?api-key=#{ENV["NY_TIMES_API_KEY"]}&query=#{title}")
+    reply(@recipient, "Got the movie! Retrieving reviews...")
 
     if response.code == 200
       json = JSON.parse(response.body)
@@ -70,6 +71,7 @@ def movie_action(action, text)
         page = agent.get(url)
         review = page.search("p.story-body-text").text
         logger.info "REVIEW: #{review}"
+        # Stream this review to Sentiment Analysis module.
         reply(@recipient, "Found your review at #{url}" )
       end
     else
@@ -101,7 +103,7 @@ def reply(sender, text)
     }
   }
   logger.info "send to #{settings.endpoint}, body: #{body}"
-  #HTTParty.post(settings.endpoint, body: body)
+  HTTParty.post(settings.endpoint, body: body)
 end
 
 get '/' do

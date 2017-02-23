@@ -1,2 +1,4 @@
 # Ignore application development configuration
 .env
+# Ignore byebug history
+.byebug_history
