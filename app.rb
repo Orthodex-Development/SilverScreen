@@ -56,6 +56,8 @@ end
 def movie_action(action, text)
   case action
   when "find"
+    200
+    return
     movie_id = text.match(/(.)*movie: (.*)/i)[2]
     title = Tmdb::Movie.detail(movie_id).title
 
