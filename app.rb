@@ -2,6 +2,7 @@ require 'json'
 require 'sinatra'
 require 'httparty'
 require 'themoviedb-api'
+#require 'byebug'
 require 'dotenv'
 require 'mechanize'
 
@@ -102,8 +103,8 @@ def reply(sender, text)
       text: text
     }
   }
-  logger.info "send to #{settings.endpoint}, body: #{body}"
-  HTTParty.post(settings.endpoint, body: body)
+  logger.info "send to Facebook, body: #{body}"
+  HTTParty.post(settings.endpoint, body: URI.encode_www_form({json: body}))
 end
 
 get '/' do
