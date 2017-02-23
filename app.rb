@@ -90,7 +90,7 @@ def movie_action(action, text)
       movie_id << movie["id"]
     end
     reply(@recipient, "These are the current popular movies: #{title_arr.map.with_index{ |x,i| "(#{movie_id[i]}) " + x }.join(", ")}")
-    reply(@recipient, "To find details about a movie type - find movie: movie_id")
+    #reply(@recipient, "To find details about a movie type - find movie: movie_id")
   end
 end
 
