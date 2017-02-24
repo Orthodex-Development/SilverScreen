@@ -8,7 +8,7 @@ require 'dotenv'
 require 'mechanize'
 
 configure do
-  REDIS = Redis.new(url: ENV["REDIS_URL"] || 'redis://localhost:6379/12')
+  REDIS = Redis.new(url: ENV["REDISCLOUD_URL"] || 'redis://localhost:6379/12')
   FACEBOOK_URL = "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV["PAGE_TOKEN"]}"
   Dotenv.load
 end
