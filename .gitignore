@@ -2,3 +2,4 @@
 .env
 # Ignore byebug history
 .byebug_history
+dump.rdb

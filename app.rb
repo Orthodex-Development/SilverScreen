@@ -2,14 +2,18 @@ require 'json'
 require 'sinatra'
 require 'httparty'
 require 'themoviedb-api'
+require 'redis'
 #require 'byebug'
 require 'dotenv'
 require 'mechanize'
 
-set :endpoint, "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV['PAGE_TOKEN']}"
+configure do
+  REDIS = Redis.new(url: ENV["REDIS_URL"] || 'redis://localhost:6379/12')
+  FACEBOOK_URL = "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV["PAGE_TOKEN"]}"
+  Dotenv.load
+end
 
 before do
-  Dotenv.load
   Tmdb::Api.key(ENV["TMDB_API_KEY"])
   logger.info "key? : #{ENV.key?("TMDB_API_KEY")}"
 end
@@ -57,31 +61,14 @@ def movie_action(action, text)
   case action
   when "find"
     movie_id = text.match(/(.)*movie: (.*)/i)[2]
-    title = Tmdb::Movie.detail(movie_id).title
-
-      response = HTTParty.get("http://api.nytimes.com/svc/movies/v2/reviews/search.json?api-key=#{ENV["NY_TIMES_API_KEY"]}&query=#{title}")
-    reply(@recipient, "Got the movie! Retrieving reviews...")
-
-    if response.code == 200
-      json = JSON.parse(response.body)
-      if json["results"].empty?
-        reply(@recipient, "Sorry, but I couldn't find any review for that movie.")
-      else
-        url = json["results"][0]["link"]["url"]
-        # Scrape NY Times review site for review
-        agent = Mechanize.new
-        page = agent.get(url)
-        review = page.search("p.story-body-text").text
-        logger.info "REVIEW: #{review}"
-        # Stream this review to Sentiment Analysis module.
-        reply(@recipient, "Found your review at #{url}" )
-      end
+    review_url = REDIS.get "url_#{movie_id}"
+    if review_url.nil?
+      logger.info "Movie not stored. Fetching data from NY Times api."
+      fetch_review(movie_id)
     else
-      reply(@recipient, "Sorry, but an error ocurred")
+      logger.info "Review found in Redis."
+      reply(@recipient, "Found your review at #{review_url}. Crunching numbers to give you the best aspects of the movie.." )
     end
-    # Send review to Python app
-    # Send review to bot.
-    # reply(@recipient, "Here is the review for your movie: #{review}")
   when "discover"
     movies = Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
     title_arr = []
@@ -105,8 +92,36 @@ def reply(sender, text)
     }
   }
   logger.info "send to Facebook, body: #{body}"
-  body = URI.encode_www_form({json: body})
-  HTTParty.post(settings.endpoint, body: body)
+  #HTTParty.post(FACEBOOK_URL, body: body)
+end
+
+def fetch_review(movie_id)
+  title = Tmdb::Movie.detail(movie_id).title
+
+  response = HTTParty.get("http://api.nytimes.com/svc/movies/v2/reviews/search.json?api-key=#{ENV["NY_TIMES_API_KEY"]}&query=#{title}")
+  reply(@recipient, "Got the movie! Retrieving reviews...")
+
+  if response.code == 200
+    json = JSON.parse(response.body)
+    if json["results"].empty?
+      reply(@recipient, "Sorry, but I couldn't find any review for that movie.")
+    else
+      url = json["results"][0]["link"]["url"]
+      # Scrape NY Times review site for review
+      agent = Mechanize.new
+      page = agent.get(url)
+      review = page.search("p.story-body-text").text
+      # logger.info "REVIEW: #{review}"
+      logger.info "Storing Review in REDIS. Review size: #{review.size}"
+      REDIS.setnx "wh_#{movie_id}", review
+      REDIS.setnx "url_#{movie_id}", url
+      # TODO: Stream this review to Sentiment Analysis module.
+      # Send review link to bot.
+      reply(@recipient, "Found your review at #{url}. Crunching numbers to give you the best aspects of the movie.." )
+    end
+  else
+    reply(@recipient, "Sorry, but an error ocurred")
+  end
 end
 
 get '/' do

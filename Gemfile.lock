@@ -33,6 +33,7 @@ GEM
     rack (1.6.5)
     rack-protection (1.5.3)
       rack
+    redis (3.3.2)
     rest-client (1.8.0)
       http-cookie (>= 1.0.2, < 2.0)
       mime-types (>= 1.16, < 3.0)
@@ -59,8 +60,12 @@ DEPENDENCIES
   json (~> 1.8.3)
   mechanize
   puma
+  redis (~> 3.2)
   sinatra
   themoviedb-api
+
+RUBY VERSION
+   ruby 2.3.1p112
 
 BUNDLED WITH
    1.14.4
