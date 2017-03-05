@@ -13,7 +13,7 @@ configure do
   if ENV['RACK_ENV'].nil? || ENV['RACK_ENV'] == "development"
     DOMAIN = "http://localhost:3000"
   else
-    DOMAIN = ""
+    DOMAIN = "https://minerva-project.herokuapp.com"
   end
   Dotenv.load
 end
