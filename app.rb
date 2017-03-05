@@ -10,6 +10,11 @@ require 'mechanize'
 configure do
   REDIS = Redis.new(url: ENV["REDISCLOUD_URL"] || 'redis://localhost:6379/12')
   FACEBOOK_URL = "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV["PAGE_TOKEN"]}"
+  if ENV['RACK_ENV'].nil? || ENV['RACK_ENV'] == "development"
+    DOMAIN = "http://localhost:3000"
+  else
+    DOMAIN = ""
+  end
   Dotenv.load
 end
 
@@ -68,6 +73,9 @@ def movie_action(action, text)
     else
       logger.info "Review found in Redis."
       reply(@recipient, "Found your review at #{review_url}. Crunching numbers to give you the best aspects of the movie.." )
+      # Send this review to Feature Extraction and Opinion Mining Module (Minerva) : https://github.com/Orthodex-Development/Minerva
+      review = REDIS.get "wh_#{movie_id}"
+      send_review_to_minerva(review, movie_id)
     end
   when "discover"
     movies = Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
@@ -115,13 +123,25 @@ def fetch_review(movie_id)
       logger.info "Storing Review in REDIS. Review size: #{review.size}"
       REDIS.setnx "wh_#{movie_id}", review
       REDIS.setnx "url_#{movie_id}", url
-      # TODO: Stream this review to Sentiment Analysis module.
+      # Send this review to Feature Extraction and Opinion Mining Module (Minerva) : https://github.com/Orthodex-Development/Minerva
+      send_review_to_minerva(review, movie_id)
       # Send review link to bot.
       reply(@recipient, "Found your review at #{url}. Crunching numbers to give you the best aspects of the movie.." )
     end
   else
     reply(@recipient, "Sorry, but an error ocurred")
   end
+end
+
+def send_review_to_minerva(review, movie_id)
+  HTTParty.post(DOMAIN << "/api/tokenize",
+    body:
+      {
+        :token => {
+          :review => review,
+          :movie_id => movie_id
+        }
+      })
 end
 
 get '/' do
