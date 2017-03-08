@@ -8,8 +8,9 @@ require 'dotenv'
 require 'mechanize'
 
 configure do
-  REDIS = Redis.new(url: ENV["REDISCLOUD_URL"] || 'redis://localhost:6379/12')
+  REDIS = Redis.new(url: ENV["REDISCLOUD_URL"] || 'redis://localhost:6379/15')
   FACEBOOK_URL = "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV["PAGE_TOKEN"]}"
+  Tmdb::Api.key(ENV["TMDB_API_KEY"])
   if ENV['RACK_ENV'].nil? || ENV['RACK_ENV'] == "development"
     DOMAIN = "http://localhost:3000"
   else
@@ -18,15 +19,16 @@ configure do
   Dotenv.load
 end
 
-before do
-  Tmdb::Api.key(ENV["TMDB_API_KEY"])
-  logger.info "key? : #{ENV.key?("TMDB_API_KEY")}"
-end
-
 helpers do
   def logger
     request.logger
   end
+end
+
+post '/analysis' do
+  request.body.rewind  # in case someone already read it
+  data = JSON.parse request.body.read
+  reply(data["user"], data["message"])
 end
 
 get '/webhook' do
@@ -75,7 +77,7 @@ def movie_action(action, text)
       reply(@recipient, "Found your review at #{review_url}. Crunching numbers to give you the best aspects of the movie.." )
       # Send this review to Feature Extraction and Opinion Mining Module (Minerva) : https://github.com/Orthodex-Development/Minerva
       review = REDIS.get "wh_#{movie_id}"
-      send_review_to_minerva(review, movie_id)
+      send_review_to_minerva(review, movie_id, @recipient)
     end
   when "discover"
     movies = Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
@@ -100,7 +102,7 @@ def reply(sender, text)
     }
   }
   logger.info "send to Facebook, body: #{body}"
-  HTTParty.post(FACEBOOK_URL, body: body)
+  #HTTParty.post(FACEBOOK_URL, body: body)
 end
 
 def fetch_review(movie_id)
@@ -124,7 +126,7 @@ def fetch_review(movie_id)
       REDIS.setnx "wh_#{movie_id}", review
       REDIS.setnx "url_#{movie_id}", url
       # Send this review to Feature Extraction and Opinion Mining Module (Minerva) : https://github.com/Orthodex-Development/Minerva
-      send_review_to_minerva(review, movie_id)
+      send_review_to_minerva(review, movie_id, @recipient)
       # Send review link to bot.
       reply(@recipient, "Found your review at #{url}. Crunching numbers to give you the best aspects of the movie.." )
     end
@@ -133,13 +135,14 @@ def fetch_review(movie_id)
   end
 end
 
-def send_review_to_minerva(review, movie_id)
-  HTTParty.post(DOMAIN << "/api/tokenize",
+def send_review_to_minerva(review, movie_id, user_id)
+  HTTParty.post(DOMAIN + "/api/tokenize",
     body:
       {
         :token => {
           :review => review,
-          :movie_id => movie_id
+          :movie_id => movie_id,
+          :user_id => user_id
         }
       })
 end
