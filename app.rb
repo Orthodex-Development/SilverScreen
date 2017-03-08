@@ -10,13 +10,16 @@ require 'mechanize'
 configure do
   REDIS = Redis.new(url: ENV["REDISCLOUD_URL"] || 'redis://localhost:6379/15')
   FACEBOOK_URL = "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV["PAGE_TOKEN"]}"
-  Tmdb::Api.key(ENV["TMDB_API_KEY"])
   if ENV['RACK_ENV'].nil? || ENV['RACK_ENV'] == "development"
     DOMAIN = "http://localhost:3000"
   else
     DOMAIN = "https://minerva-project.herokuapp.com"
   end
   Dotenv.load
+end
+
+before do
+  Tmdb::Api.key(ENV["TMDB_API_KEY"])
 end
 
 helpers do
