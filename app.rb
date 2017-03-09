@@ -178,7 +178,7 @@ def reply_with_list(more = false, page = 0)
     end
   end
   logger.info "send to Facebook, body: #{body}"
-  #HTTParty.post(FACEBOOK_URL, body: body)
+  HTTParty.post(FACEBOOK_URL, body: body)
 end
 
 def fetch_review(movie_id)
