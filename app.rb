@@ -3,6 +3,7 @@ require 'sinatra'
 require 'httparty'
 require 'themoviedb-api'
 require 'redis'
+require 'will_paginate/array'
 #require 'byebug'
 require 'dotenv'
 require 'mechanize'
@@ -10,6 +11,7 @@ require 'mechanize'
 configure do
   REDIS = Redis.new(url: ENV["REDISCLOUD_URL"] || 'redis://localhost:6379/15')
   FACEBOOK_URL = "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV["PAGE_TOKEN"]}"
+  IMAGE_PATH = "https://image.tmdb.org/t/p/w500"
   if ENV['RACK_ENV'].nil? || ENV['RACK_ENV'] == "development"
     DOMAIN = "http://localhost:3000"
   else
@@ -47,31 +49,50 @@ post '/webhook' do
   request.body.rewind  # in case someone already read it
   data = JSON.parse request.body.read
   logger.info "Payload: #{data.inspect}"
-  entry = data["entry"][0]["messaging"][0]
+  entry = data["entry"]
 
-  if entry.has_key?("message")
-    message = entry["message"]
-    if message["is_echo"]
-      logger.info "---> This is a message_echoes callback (when the bot sends a reply back)"
+  if entry.nil?
+    # Postback
+    sender = data["sender"]["id"]
+    payload = JSON.parse(data["postback"]["payload"])
+    if payload.has_key?("action")
+      @movies = get_movies
+      @recipient  = sender
+      reply_with_list(true, payload["page"])
+    elsif payload.has_key?("movie_id")
+      movie_action("find", payload["movie_id"])
+    end
+    200
+  else
+    entry = data["entry"][0]["messaging"][0]
+    if entry.has_key?("message")
+      message = entry["message"]
+      if message["is_echo"]
+        logger.info "---> This is a message_echoes callback (when the bot sends a reply back)"
+      else
+        logger.info "---> This is a message callback (when the bot receives a message)"
+        @recipient = entry["sender"]["id"]
+        text = message["text"]
+
+        action = if text.include? "discover" then "discover" else "find" end
+
+        movie_action(action, text)
+        200
+      end
     else
-      logger.info "---> This is a message callback (when the bot receives a message)"
-      @recipient = entry["sender"]["id"]
-      text = message["text"]
-
-      action = if text.include? "discover" then "discover" else "find" end
-
-      movie_action(action, text)
       200
     end
-  else
-    200
   end
 end
 
-def movie_action(action, text)
+def get_movies
+  Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
+end
+
+def movie_action(action, m_id)
   case action
   when "find"
-    movie_id = text.match(/(.)*movie: (.*)/i)[2]
+    movie_id = m_id
     review_url = REDIS.get "url_#{movie_id}"
     if review_url.nil?
       logger.info "Movie not stored. Fetching data from NY Times api."
@@ -84,14 +105,8 @@ def movie_action(action, text)
       send_review_to_minerva(review, movie_id, @recipient)
     end
   when "discover"
-    movies = Tmdb::Discover.movie(:"primary_release_date.gte" => Date.today.prev_month.strftime , :"primary_release_date.lte" => Date.today.strftime, :sort_by => "popularity.desc", :page => 1)
-    title_arr = []
-    movie_id = []
-    movie_titles = movies["results"].each do |movie|
-      title_arr << movie["title"]
-      movie_id << movie["id"]
-    end
-    reply(@recipient, "These are the current popular movies: #{title_arr.map.with_index{ |x,i| "(#{movie_id[i]}) " + x }.join(", ")} \n To find details about a movie type - find movie: movie_id")
+    @movies = get_movies
+    reply_with_list
     #reply(@recipient, "To find details about a movie type - find movie: movie_id")
   end
 end
@@ -107,6 +122,63 @@ def reply(sender, text)
   }
   logger.info "send to Facebook, body: #{body}"
   HTTParty.post(FACEBOOK_URL, body: body)
+end
+
+def reply_with_list(more = false, page = 0)
+
+  body = {
+    "recipient":{
+        "id": @recipient
+      },
+    "message": {
+      "attachment": {
+        "type": "template",
+        "payload": {
+          "template_type": "list",
+          "top_element_style": "compact",
+          "buttons": [
+            {
+                "title": "View More",
+                "type": "postback",
+                "payload": {"action": "more", "page": page + 1}.to_json
+            }
+          ]
+        }
+      }
+    }
+  }
+
+  body[:message][:attachment][:payload][:elements] = []
+
+  if !more
+    logger.info "page: #{page}"
+    @movies["results"].paginate(:per_page => 4).each do |movie|
+    body[:message][:attachment][:payload][:elements] << {
+              "title": movie["title"],
+              "image_url": IMAGE_PATH + movie["poster_path"],
+              "subtitle": Date.parse(movie["release_date"]).strftime("%d %b, %Y"),
+              "default_action": {
+                  "type": "postback",
+                  "payload": {"movie_id": movie["id"]}.to_json
+                }
+              }
+    end
+  else
+    logger.info "page: #{page + 1}"
+    @movies["results"].paginate(:page => page + 1, :per_page => 4).each do |movie|
+    body[:message][:attachment][:payload][:elements] << {
+              "title": movie["title"],
+              "image_url": IMAGE_PATH + movie["poster_path"],
+              "subtitle": Date.parse(movie["release_date"]).strftime("%d %b, %Y"),
+              "default_action": {
+                  "type": "postback",
+                  "payload": {"movie_id": movie["id"]}.to_json
+                }
+              }
+    end
+  end
+  logger.info "send to Facebook, body: #{body}"
+  #HTTParty.post(FACEBOOK_URL, body: body)
 end
 
 def fetch_review(movie_id)

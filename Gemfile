@@ -10,4 +10,5 @@ gem 'puma'
 gem 'themoviedb-api'
 gem 'dotenv'
 gem 'mechanize'
+gem 'will_paginate'
 gem 'byebug', group: :development

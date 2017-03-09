@@ -49,6 +49,7 @@ GEM
       unf_ext
     unf_ext (0.0.7.2)
     webrobots (0.1.2)
+    will_paginate (3.1.5)
 
 PLATFORMS
   ruby
@@ -63,9 +64,10 @@ DEPENDENCIES
   redis (~> 3.2)
   sinatra
   themoviedb-api
+  will_paginate
 
 RUBY VERSION
    ruby 2.3.1p112
 
 BUNDLED WITH
-   1.14.4
+   1.14.6
