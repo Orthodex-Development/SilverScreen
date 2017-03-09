@@ -32,13 +32,14 @@ post '/analysis' do
   request.body.rewind  # in case someone already read it
   data = JSON.parse request.body.read
   reply(data["user"], data["message"])
+  200
 end
 
 get '/webhook' do
   if params['hub.verify_token'] == ENV['VERIFY_TOKEN']
     params['hub.challenge']
   else
-    render 403
+    403
   end
 end
 
