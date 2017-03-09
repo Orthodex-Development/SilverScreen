@@ -178,7 +178,8 @@ def reply_with_list(more = false, page = 0)
     end
   end
   logger.info "send to Facebook, body: #{body}"
-  HTTParty.post(FACEBOOK_URL, body: body)
+  response = HTTParty.post(FACEBOOK_URL, body: body)
+  puts "#{response.message}, #{response.code}"
 end
 
 def fetch_review(movie_id)
