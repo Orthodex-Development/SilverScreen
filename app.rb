@@ -90,7 +90,7 @@ def movie_action(action, text)
       title_arr << movie["title"]
       movie_id << movie["id"]
     end
-    reply(@recipient, "These are the current popular movies: #{title_arr.map.with_index{ |x,i| "(#{movie_id[i]}) " + x }.join(", ")}")
+    reply(@recipient, "These are the current popular movies: #{title_arr.map.with_index{ |x,i| "(#{movie_id[i]}) " + x }.join(", ")} \n To find details about a movie type - find movie: movie_id")
     #reply(@recipient, "To find details about a movie type - find movie: movie_id")
   end
 end
@@ -105,7 +105,7 @@ def reply(sender, text)
     }
   }
   logger.info "send to Facebook, body: #{body}"
-  HTTParty.post(FACEBOOK_URL, body: body)
+  #HTTParty.post(FACEBOOK_URL, body: body)
 end
 
 def fetch_review(movie_id)
