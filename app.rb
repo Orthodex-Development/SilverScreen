@@ -4,7 +4,7 @@ require 'httparty'
 require 'themoviedb-api'
 require 'redis'
 require 'will_paginate/array'
-require 'byebug'
+#require 'byebug'
 require 'dotenv'
 require 'mechanize'
 
