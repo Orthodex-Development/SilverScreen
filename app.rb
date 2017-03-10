@@ -4,11 +4,12 @@ require 'httparty'
 require 'themoviedb-api'
 require 'redis'
 require 'will_paginate/array'
-#require 'byebug'
+require 'byebug'
 require 'dotenv'
 require 'mechanize'
 
 configure do
+  Dotenv.load
   REDIS = Redis.new(url: ENV["REDISCLOUD_URL"] || 'redis://localhost:6379/15')
   FACEBOOK_URL = "https://graph.facebook.com/v2.6/me/messages?access_token=#{ENV["PAGE_TOKEN"]}"
   IMAGE_PATH = "https://image.tmdb.org/t/p/w500"
@@ -17,7 +18,6 @@ configure do
   else
     DOMAIN = "https://minerva-project.herokuapp.com"
   end
-  Dotenv.load
 end
 
 before do
@@ -49,22 +49,21 @@ post '/webhook' do
   request.body.rewind  # in case someone already read it
   data = JSON.parse request.body.read
   logger.info "Payload: #{data.inspect}"
-  entry = data["entry"]
+  entry = data["entry"][0]["messaging"][0]
 
-  if entry.nil?
+  if !entry["postback"].nil?
     # Postback
-    sender = data["sender"]["id"]
-    payload = JSON.parse(data["postback"]["payload"])
+    sender = entry["sender"]["id"]
+    @recipient  = sender
+    payload = JSON.parse(entry["postback"]["payload"])
     if payload.has_key?("action")
       @movies = get_movies
-      @recipient  = sender
       reply_with_list(true, payload["page"])
     elsif payload.has_key?("movie_id")
       movie_action("find", payload["movie_id"])
     end
     200
   else
-    entry = data["entry"][0]["messaging"][0]
     if entry.has_key?("message")
       message = entry["message"]
       if message["is_echo"]
@@ -120,11 +119,29 @@ def reply(sender, text)
       text: text
     }
   }
-  logger.info "send to Facebook, body: #{body}"
+  logger.info "send to #{FACEBOOK_URL}, body: #{body}"
   HTTParty.post(FACEBOOK_URL, body: body)
 end
 
 def reply_with_list(more = false, page = 0)
+
+  elements = []
+
+  logger.info "page: #{page + 1}"
+  @movies["results"].paginate(:page => page + 1, :per_page => 4).each do |movie|
+  elements << {
+            "title": movie["title"],
+            "image_url": IMAGE_PATH + movie["poster_path"],
+            "subtitle": Date.parse(movie["release_date"]).strftime("%d %b, %Y"),
+            "buttons": [
+                {
+                  "title": "Get Ratings",
+                  "type": "postback",
+                  "payload": {"movie_id": movie["id"]}.to_json
+                }
+              ]
+            }
+  end
 
   body = {
     "recipient":{
@@ -136,11 +153,12 @@ def reply_with_list(more = false, page = 0)
         "payload": {
           "template_type": "list",
           "top_element_style": "compact",
+          "elements": elements,
           "buttons": [
             {
-                "title": "View More",
-                "type": "postback",
-                "payload": {"action": "more", "page": page + 1}.to_json
+              "title": "View More",
+              "type": "postback",
+              "payload": {"action": "more", "page": page + 1}.to_json
             }
           ]
         }
@@ -148,37 +166,8 @@ def reply_with_list(more = false, page = 0)
     }
   }
 
-  body[:message][:attachment][:payload][:elements] = []
-
-  if !more
-    logger.info "page: #{page}"
-    @movies["results"].paginate(:per_page => 4).each do |movie|
-    body[:message][:attachment][:payload][:elements] << {
-              "title": movie["title"],
-              "image_url": IMAGE_PATH + movie["poster_path"],
-              "subtitle": Date.parse(movie["release_date"]).strftime("%d %b, %Y"),
-              "default_action": {
-                  "type": "postback",
-                  "payload": {"movie_id": movie["id"]}.to_json
-                }
-              }
-    end
-  else
-    logger.info "page: #{page + 1}"
-    @movies["results"].paginate(:page => page + 1, :per_page => 4).each do |movie|
-    body[:message][:attachment][:payload][:elements] << {
-              "title": movie["title"],
-              "image_url": IMAGE_PATH + movie["poster_path"],
-              "subtitle": Date.parse(movie["release_date"]).strftime("%d %b, %Y"),
-              "default_action": {
-                  "type": "postback",
-                  "payload": {"movie_id": movie["id"]}.to_json
-                }
-              }
-    end
-  end
-  logger.info "send to Facebook, body: #{body}"
-  response = HTTParty.post(FACEBOOK_URL, body: body)
+  logger.info "send to #{FACEBOOK_URL}, body: #{body.to_json}"
+  response = HTTParty.post(FACEBOOK_URL, body: body.to_json, headers: { 'Content-Type' => 'application/json' })
   puts "#{response.message}, #{response.code}, #{response.parsed_response}"
 end
 
